@@ -1,0 +1,2 @@
+# AnimatedSample
+Animated sample app.
