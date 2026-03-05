@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
@@ -70,37 +71,25 @@ private fun animatedFloat(
 ): Float {
     val values = remember { mutableFloatStateOf(initialValue) }
     val targetValues = remember { AtomicReference(targetValue) }
-    val fractions = remember { AtomicReference(0f) }
     LaunchedEffect(targetValue) {
         targetValues.set(targetValue)
-        val message = """
-            target: $targetValue
-            value: ${values.floatValue}
-        """.trimIndent()
-        println(message)
         val timeNanos = duration.inWholeNanoseconds.toFloat()
 //        val timeStart = withFrameNanos { it }
         val timeStart = System.nanoTime() // todo
-        val appendix = fractions.getAndSet(0f)
         val startedValue = values.floatValue
         val valuesDiff = targetValue - startedValue
         if (valuesDiff != 0f) {
             withContext(Dispatchers.Default) {
                 while (true) {
-                    if (targetValue != targetValues.get()) {
-                        println("new target") // todo
-                        break
-                    }
+                    if (targetValue != targetValues.get()) break
 //                val timeDiff = withFrameNanos { it - timeStart }.toFloat()
                     val timeNow = System.nanoTime()
                     val timeDiff = timeNow.minus(timeStart).toFloat()
                     if (timeDiff < timeNanos) {
                         val fraction = timeDiff / timeNanos
                         values.floatValue = startedValue + valuesDiff * easing.transform(fraction)
-                        fractions.set(fraction)
                     } else {
                         values.floatValue = targetValue
-                        fractions.set(0f)
                         break
                     }
                 }
@@ -112,14 +101,22 @@ private fun animatedFloat(
 
 @Composable
 internal fun MainScreen() {
+    val state = remember { AnimatedState() }
+    val isLoading = state.loading.collectAsState().value
+    LaunchedEffect(Unit) {
+        state.loading.collect { isLoading ->
+            println("loading: $isLoading")
+        }
+    }
     val targetValues = remember { mutableFloatStateOf(0f) }
-    val currentValue = animatedFloat(
+    val currentValue = state.animatedFloat(
 //    val currentValue = v1(
         initialValue = 0f,
         targetValue = targetValues.value,
         duration = 2.seconds,
         easing = LinearEasing,
 //        easing = FastOutSlowInEasing,
+        label = "width",
     )
     Box(
         modifier = Modifier
@@ -134,6 +131,7 @@ internal fun MainScreen() {
             val text = """
                 current: $currentValue
                 target: ${targetValues.floatValue}
+                loading: $isLoading
             """.trimIndent()
             BasicText(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
