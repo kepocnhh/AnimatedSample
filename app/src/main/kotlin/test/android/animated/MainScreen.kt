@@ -161,6 +161,7 @@ internal fun AnimatedState.TestScreen(label: String, color: Color) {
 @Composable
 internal fun MainScreen() {
     val state = remember { AnimatedState() }
+    val isLoading = state.loading.collectAsState().value
     LaunchedEffect(Unit) {
         state.loading.collect { isLoading ->
             println("loading: $isLoading")
@@ -183,6 +184,16 @@ internal fun MainScreen() {
             state.TestScreen(
                 label = "green",
                 color = Color.Green,
+            )
+            BasicText(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clickable(enabled = !isLoading) {
+                        println("click")
+                    }
+                    .wrapContentSize(),
+                text = "click",
             )
         }
     }
