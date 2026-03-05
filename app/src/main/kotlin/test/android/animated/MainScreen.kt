@@ -12,6 +12,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -100,24 +101,71 @@ private fun animatedFloat(
 }
 
 @Composable
+internal fun AnimatedState.TestScreen(label: String, color: Color) {
+    val targetValues = remember { mutableFloatStateOf(0f) }
+    val currentValue = animatedFloat(
+        initialValue = 0f,
+        targetValue = targetValues.value,
+        duration = 2.seconds,
+        easing = LinearEasing,
+        label = label,
+    )
+    val text = """
+        label: $label
+        current: $currentValue
+        target: ${targetValues.floatValue}
+    """.trimIndent()
+    BasicText(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        text = text,
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp),
+    ) {
+        Spacer(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(fraction = currentValue)
+                .background(color = color),
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth(),
+    ) {
+        BasicText(
+            modifier = Modifier
+                .height(48.dp)
+                .weight(1f)
+                .clickable {
+                    targetValues.value = 0f
+                }
+                .wrapContentSize(),
+            text = "set target 0",
+        )
+        BasicText(
+            modifier = Modifier
+                .height(48.dp)
+                .weight(1f)
+                .clickable {
+                    targetValues.value = 1f
+                }
+                .wrapContentSize(),
+            text = "set target 1",
+        )
+    }
+}
+
+@Composable
 internal fun MainScreen() {
     val state = remember { AnimatedState() }
-    val isLoading = state.loading.collectAsState().value
     LaunchedEffect(Unit) {
         state.loading.collect { isLoading ->
             println("loading: $isLoading")
         }
     }
-    val targetValues = remember { mutableFloatStateOf(0f) }
-    val currentValue = state.animatedFloat(
-//    val currentValue = v1(
-        initialValue = 0f,
-        targetValue = targetValues.value,
-        duration = 2.seconds,
-        easing = LinearEasing,
-//        easing = FastOutSlowInEasing,
-        label = "width",
-    )
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -128,77 +176,14 @@ internal fun MainScreen() {
                 .fillMaxWidth()
                 .align(Alignment.Center),
         ) {
-            val text = """
-                current: $currentValue
-                target: ${targetValues.floatValue}
-                loading: $isLoading
-            """.trimIndent()
-            BasicText(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                text = text,
+            state.TestScreen(
+                label = "red",
+                color = Color.Red,
             )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-            ) {
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(fraction = currentValue)
-                        .background(color = Color.Red),
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-            ) {
-                BasicText(
-                    modifier = Modifier
-                        .height(48.dp)
-                        .weight(1f)
-                        .clickable {
-                            targetValues.value = 0f
-                        }
-                        .wrapContentSize(),
-                    text = "set target 0",
-                )
-                BasicText(
-                    modifier = Modifier
-                        .height(48.dp)
-                        .weight(1f)
-                        .clickable {
-                            targetValues.value = 1f
-                        }
-                        .wrapContentSize(),
-                    text = "set target 1",
-                )
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-            ) {
-                BasicText(
-                    modifier = Modifier
-                        .height(48.dp)
-                        .weight(1f)
-                        .clickable {
-                            targetValues.value = 0.25f
-                        }
-                        .wrapContentSize(),
-                    text = "set target 0.25",
-                )
-                BasicText(
-                    modifier = Modifier
-                        .height(48.dp)
-                        .weight(1f)
-                        .clickable {
-                            targetValues.value = 0.75f
-                        }
-                        .wrapContentSize(),
-                    text = "set target 0.75",
-                )
-            }
+            state.TestScreen(
+                label = "green",
+                color = Color.Green,
+            )
         }
     }
 }
