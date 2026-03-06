@@ -26,6 +26,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -61,6 +63,40 @@ private fun v1(
         animatable.animateTo(targetValue, tween(durationMillis = duration.inWholeMilliseconds.toInt(), easing = easing))
     }
     return animatable.value
+}
+
+@Composable
+private fun v2(
+    backValue: Float,
+    forwardValue: Float,
+    duration: Duration,
+    isForward: Boolean,
+): Float {
+    val values = remember { mutableFloatStateOf(backValue) }
+    val timeLeftState = remember { mutableLongStateOf(0) }
+    LaunchedEffect(isForward) {
+//        val startedValue = values.floatValue
+        val startedValue = if (isForward) backValue else forwardValue
+        val targetValue = if (isForward) forwardValue else backValue
+        if (values.floatValue != targetValue) {
+            val valuesDiff = targetValue - startedValue
+            val timeNanos = duration.inWholeNanoseconds
+            val timeStart = withFrameNanos { it } - timeLeftState.longValue
+            while (true) {
+                val timePassed = withFrameNanos { it - timeStart }
+                if (timePassed < timeNanos) {
+                    timeLeftState.longValue = timeNanos - timePassed
+                    val fraction = timePassed.toFloat() / timeNanos
+                    values.floatValue = startedValue + valuesDiff * fraction
+                } else {
+                    timeLeftState.longValue = 0
+                    values.floatValue = targetValue
+                    break
+                }
+            }
+        }
+    }
+    return values.floatValue
 }
 
 @Composable
@@ -159,6 +195,63 @@ internal fun AnimatedState.TestScreen(label: String, color: Color) {
 }
 
 @Composable
+private fun V2Screen(color: Color) {
+    val directions = remember { mutableStateOf(false) }
+    val isForward = directions.value
+    val currentValue = v2(
+        backValue = 0f,
+        forwardValue = 1f,
+        duration = 2.seconds,
+        isForward = isForward,
+    )
+    val text = """
+        current: $currentValue
+        isForward: $isForward
+    """.trimIndent()
+    BasicText(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        text = text,
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp),
+    ) {
+        Spacer(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(fraction = currentValue)
+                .background(color = color),
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth(),
+    ) {
+        BasicText(
+            modifier = Modifier
+                .height(48.dp)
+                .weight(1f)
+                .clickable {
+                    directions.value = false
+                }
+                .wrapContentSize(),
+            text = "to back",
+        )
+        BasicText(
+            modifier = Modifier
+                .height(48.dp)
+                .weight(1f)
+                .clickable {
+                    directions.value = true
+                }
+                .wrapContentSize(),
+            text = "to forward",
+        )
+    }
+}
+
+@Composable
 internal fun MainScreen() {
     val state = remember { AnimatedState() }
     val isLoading = state.loading.collectAsState().value
@@ -185,6 +278,7 @@ internal fun MainScreen() {
                 label = "green",
                 color = Color.Green,
             )
+            V2Screen(color = Color.Blue)
             BasicText(
                 modifier = Modifier
                     .fillMaxWidth()
