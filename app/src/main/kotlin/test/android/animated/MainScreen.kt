@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -74,8 +75,32 @@ private fun v2(
     isForward: Boolean,
 ): Float {
     val values = remember { mutableFloatStateOf(backValue) }
-    val timeLeftState = remember { mutableLongStateOf(0) }
-    LaunchedEffect(isForward) {
+    val timeLeftState = remember { AtomicLong(0L) }
+    val backValues = remember { AtomicReference(backValue) }
+    val forwardValues = remember { AtomicReference(forwardValue) }
+    val durations = remember { AtomicReference(duration) }
+    val easingState = remember { AtomicReference(easing) }
+    LaunchedEffect(backValue, forwardValue, duration, easing, isForward) {
+        //
+        val timeLeft: Long
+        val currentValue: Float
+        if (
+            backValue != backValues.get() ||
+            forwardValue != forwardValues.get() ||
+            duration != durations.get() ||
+            easing != easingState.get()
+        ) {
+            backValues.set(backValue)
+            forwardValues.set(backValue)
+            durations.set(duration)
+            easingState.set(easing)
+            timeLeft = 0
+            currentValue = backValue
+        } else {
+            timeLeft = timeLeftState.get()
+            currentValue = values.floatValue
+        }
+        //
         val startedValue: Float
         val targetValue: Float
         if (isForward) {
@@ -85,15 +110,15 @@ private fun v2(
             startedValue = forwardValue
             targetValue = backValue
         }
-        if (values.floatValue != targetValue) {
+        if (currentValue != targetValue) {
             val valuesDiff = targetValue - startedValue
             val timeNanos = duration.inWholeNanoseconds
             val timeNow = withFrameNanos { it }
-            val timeStart = timeNow - timeLeftState.longValue
+            val timeStart = timeNow - timeLeft
             while (true) {
                 val timePassed = withFrameNanos { it - timeStart }
                 if (timePassed < timeNanos) {
-                    timeLeftState.longValue = timeNanos - timePassed
+                    timeLeftState.set(timeNanos - timePassed)
                     val fraction = timePassed.toFloat() / timeNanos
                     values.floatValue = startedValue + if (isForward) {
                         val multiplier = easing.transform(fraction = fraction)
@@ -103,7 +128,7 @@ private fun v2(
                         valuesDiff - valuesDiff * multiplier
                     }
                 } else {
-                    timeLeftState.longValue = 0
+                    timeLeftState.set(0)
                     values.floatValue = targetValue
                     break
                 }
