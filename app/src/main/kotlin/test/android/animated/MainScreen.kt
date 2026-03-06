@@ -70,24 +70,38 @@ private fun v2(
     backValue: Float,
     forwardValue: Float,
     duration: Duration,
+    easing: Easing,
     isForward: Boolean,
 ): Float {
     val values = remember { mutableFloatStateOf(backValue) }
     val timeLeftState = remember { mutableLongStateOf(0) }
     LaunchedEffect(isForward) {
-//        val startedValue = values.floatValue
-        val startedValue = if (isForward) backValue else forwardValue
-        val targetValue = if (isForward) forwardValue else backValue
+        val startedValue: Float
+        val targetValue: Float
+        if (isForward) {
+            startedValue = backValue
+            targetValue = forwardValue
+        } else {
+            startedValue = forwardValue
+            targetValue = backValue
+        }
         if (values.floatValue != targetValue) {
             val valuesDiff = targetValue - startedValue
             val timeNanos = duration.inWholeNanoseconds
-            val timeStart = withFrameNanos { it } - timeLeftState.longValue
+            val timeNow = withFrameNanos { it }
+            val timeStart = timeNow - timeLeftState.longValue
             while (true) {
                 val timePassed = withFrameNanos { it - timeStart }
                 if (timePassed < timeNanos) {
                     timeLeftState.longValue = timeNanos - timePassed
                     val fraction = timePassed.toFloat() / timeNanos
-                    values.floatValue = startedValue + valuesDiff * fraction
+                    values.floatValue = startedValue + if (isForward) {
+                        val multiplier = easing.transform(fraction = fraction)
+                        valuesDiff * multiplier
+                    } else {
+                        val multiplier = easing.transform(fraction = 1 - fraction)
+                        valuesDiff - valuesDiff * multiplier
+                    }
                 } else {
                     timeLeftState.longValue = 0
                     values.floatValue = targetValue
@@ -202,6 +216,8 @@ private fun V2Screen(color: Color) {
         backValue = 0f,
         forwardValue = 1f,
         duration = 2.seconds,
+//        easing = LinearEasing,
+        easing = FastOutSlowInEasing,
         isForward = isForward,
     )
     val text = """
