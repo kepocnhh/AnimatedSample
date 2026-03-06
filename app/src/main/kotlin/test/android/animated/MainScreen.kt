@@ -139,6 +139,49 @@ private fun v2(
 }
 
 @Composable
+private fun v3(
+    backValue: Float,
+    forwardValue: Float,
+    duration: Duration,
+    easing: Easing,
+    isForward: Boolean,
+): Float {
+    val values = remember { mutableFloatStateOf(backValue) }
+    val timeLeftState = remember { AtomicLong(0L) }
+    LaunchedEffect(isForward) {
+        val timeLeft = timeLeftState.get()
+        val currentValue = values.floatValue
+        val targetValue = if (isForward) forwardValue else backValue
+        if (currentValue != targetValue) {
+            val valuesDiff = forwardValue - backValue
+            val timeNanos = duration.inWholeNanoseconds
+            val timeNow = withFrameNanos { it }
+            val timeStart = timeNow - timeLeft
+            while (true) {
+                val timePassed = withFrameNanos { it - timeStart }
+                if (timePassed < timeNanos) {
+                    timeLeftState.set(timeNanos - timePassed)
+                    values.floatValue = if (isForward) {
+                        val fraction = timePassed.toFloat() / timeNanos
+                        val multiplier = easing.transform(fraction = fraction)
+                        backValue + valuesDiff * multiplier
+                    } else {
+                        val fraction = timeNanos.minus(timePassed).toFloat().div(timeNanos)
+                        val multiplier = easing.transform(fraction = fraction)
+                        backValue + valuesDiff * multiplier
+                    }
+                } else {
+                    timeLeftState.set(0)
+                    values.floatValue = targetValue
+                    break
+                }
+            }
+        }
+    }
+    return values.floatValue
+}
+
+@Composable
 private fun animatedFloat(
     initialValue: Float,
     targetValue: Float,
@@ -293,6 +336,65 @@ private fun V2Screen(color: Color) {
 }
 
 @Composable
+private fun V3Screen(color: Color) {
+    val directions = remember { mutableStateOf(false) }
+    val isForward = directions.value
+    val currentValue = v3(
+        backValue = 0f,
+        forwardValue = 1f,
+        duration = 2.seconds,
+//        easing = LinearEasing,
+        easing = FastOutSlowInEasing,
+        isForward = isForward,
+    )
+    val text = """
+        current: $currentValue
+        isForward: $isForward
+    """.trimIndent()
+    BasicText(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        text = text,
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp),
+    ) {
+        Spacer(
+            modifier = Modifier
+                .fillMaxHeight()
+                .fillMaxWidth(fraction = currentValue)
+                .background(color = color),
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth(),
+    ) {
+        BasicText(
+            modifier = Modifier
+                .height(48.dp)
+                .weight(1f)
+                .clickable {
+                    directions.value = false
+                }
+                .wrapContentSize(),
+            text = "to back",
+        )
+        BasicText(
+            modifier = Modifier
+                .height(48.dp)
+                .weight(1f)
+                .clickable {
+                    directions.value = true
+                }
+                .wrapContentSize(),
+            text = "to forward",
+        )
+    }
+}
+
+@Composable
 internal fun MainScreen() {
     val state = remember { AnimatedState() }
     val isLoading = state.loading.collectAsState().value
@@ -319,7 +421,7 @@ internal fun MainScreen() {
                 label = "green",
                 color = Color.Green,
             )
-            V2Screen(color = Color.Blue)
+            V3Screen(color = Color.Blue)
             BasicText(
                 modifier = Modifier
                     .fillMaxWidth()
