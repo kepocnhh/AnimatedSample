@@ -148,9 +148,30 @@ private fun v3(
 ): Float {
     val values = remember { mutableFloatStateOf(backValue) }
     val timeLeftState = remember { AtomicLong(0L) }
-    LaunchedEffect(isForward) {
-        val timeLeft = timeLeftState.get()
-        val currentValue = values.floatValue
+    val backValues = remember { AtomicReference(backValue) }
+    val forwardValues = remember { AtomicReference(forwardValue) }
+    val durations = remember { AtomicReference(duration) }
+    val easingState = remember { AtomicReference(easing) }
+    LaunchedEffect(backValue, forwardValue, duration, easing, isForward) {
+        val timeLeft: Long
+        val currentValue: Float
+        if (
+            backValue != backValues.get() ||
+            forwardValue != forwardValues.get() ||
+            duration != durations.get() ||
+            easing != easingState.get()
+        ) {
+            backValues.set(backValue)
+            forwardValues.set(backValue)
+            durations.set(duration)
+            easingState.set(easing)
+            timeLeft = 0
+            currentValue = backValue
+        } else {
+            timeLeft = timeLeftState.get()
+            currentValue = values.floatValue
+        }
+        //
         val targetValue = if (isForward) forwardValue else backValue
         if (currentValue != targetValue) {
             val valuesDiff = forwardValue - backValue
@@ -161,15 +182,13 @@ private fun v3(
                 val timePassed = withFrameNanos { it - timeStart }
                 if (timePassed < timeNanos) {
                     timeLeftState.set(timeNanos - timePassed)
-                    values.floatValue = if (isForward) {
-                        val fraction = timePassed.toFloat() / timeNanos
-                        val multiplier = easing.transform(fraction = fraction)
-                        backValue + valuesDiff * multiplier
+                    val fraction = if (isForward) {
+                        timePassed.toFloat().div(timeNanos)
                     } else {
-                        val fraction = timeNanos.minus(timePassed).toFloat().div(timeNanos)
-                        val multiplier = easing.transform(fraction = fraction)
-                        backValue + valuesDiff * multiplier
+                        timeNanos.minus(timePassed).toFloat().div(timeNanos)
                     }
+                    val multiplier = easing.transform(fraction = fraction)
+                    values.floatValue = backValue + valuesDiff * multiplier
                 } else {
                     timeLeftState.set(0)
                     values.floatValue = targetValue
