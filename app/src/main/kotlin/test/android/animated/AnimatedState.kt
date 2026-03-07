@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 
@@ -28,11 +29,11 @@ class AnimatedState {
         override val replayCache: List<Boolean> = emptyList()
 
         override suspend fun collect(collector: FlowCollector<Boolean>): Nothing {
-            val value = AtomicBoolean(_animations.value.isNotEmpty())
+            var value: Boolean? = null
             _animations.collect { labels ->
                 val isLoading = labels.isNotEmpty()
-                println("labels: ${labels.sorted()}")
-                if (value.compareAndSet(!isLoading, isLoading)) {
+                if (isLoading != value) {
+                    value = isLoading
                     collector.emit(isLoading)
                 }
             }
@@ -71,6 +72,57 @@ class AnimatedState {
                             _animations.value -= label
                             break
                         }
+                    }
+                }
+            }
+        }
+        return values.floatValue
+    }
+
+    @Composable
+    fun animatedFloat(
+        duration: Duration,
+        easing: Easing,
+        isForward: Boolean,
+        label: String,
+    ): Float {
+        val values = remember { mutableFloatStateOf(0f) }
+        val timeLeftState = remember { AtomicLong(0L) }
+        val durations = remember { AtomicReference(duration) }
+        val easingState = remember { AtomicReference(easing) }
+        LaunchedEffect(duration, easing, isForward, label) {
+            val timeLeft: Long
+            val currentValue: Float
+            if (duration != durations.get() || easing != easingState.get()) {
+                durations.set(duration)
+                easingState.set(easing)
+                timeLeft = 0
+                currentValue = 0f
+            } else {
+                timeLeft = timeLeftState.get()
+                currentValue = values.floatValue
+            }
+            val targetValue = if (isForward) 1f else 0f
+            if (currentValue != targetValue) {
+                val timeNanos = duration.inWholeNanoseconds
+                val timeNow = withFrameNanos { it }
+                val timeStart = timeNow - timeLeft
+                _animations.value += label
+                while (true) {
+                    val timePassed = withFrameNanos { it - timeStart }
+                    if (timePassed < timeNanos) {
+                        timeLeftState.set(timeNanos - timePassed)
+                        val fraction = if (isForward) {
+                            timePassed.toFloat().div(timeNanos)
+                        } else {
+                            timeNanos.minus(timePassed).toFloat().div(timeNanos)
+                        }
+                        values.floatValue = easing.transform(fraction = fraction)
+                    } else {
+                        timeLeftState.set(0)
+                        values.floatValue = targetValue
+                        _animations.value -= label
+                        break
                     }
                 }
             }

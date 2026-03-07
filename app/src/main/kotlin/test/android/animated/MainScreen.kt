@@ -213,8 +213,7 @@ private fun v4(
     LaunchedEffect(duration, easing, isForward) {
         val timeLeft: Long
         val currentValue: Float
-        if (duration != durations.get() || easing != easingState.get()
-        ) {
+        if (duration != durations.get() || easing != easingState.get()) {
             durations.set(duration)
             easingState.set(easing)
             timeLeft = 0
@@ -289,18 +288,17 @@ private fun animatedFloat(
 
 @Composable
 internal fun AnimatedState.TestScreen(label: String, color: Color) {
-    val targetValues = remember { mutableFloatStateOf(0f) }
+    val isForwardState = remember { mutableStateOf(false) }
     val currentValue = animatedFloat(
-        initialValue = 0f,
-        targetValue = targetValues.value,
         duration = 2.seconds,
         easing = LinearEasing,
         label = label,
+        isForward = isForwardState.value,
     )
     val text = """
         label: $label
         current: $currentValue
-        target: ${targetValues.floatValue}
+        isForward: ${isForwardState.value}
     """.trimIndent()
     BasicText(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -327,20 +325,20 @@ internal fun AnimatedState.TestScreen(label: String, color: Color) {
                 .height(48.dp)
                 .weight(1f)
                 .clickable {
-                    targetValues.value = 0f
+                    isForwardState.value = false
                 }
                 .wrapContentSize(),
-            text = "set target 0",
+            text = "to back",
         )
         BasicText(
             modifier = Modifier
                 .height(48.dp)
                 .weight(1f)
                 .clickable {
-                    targetValues.value = 1f
+                    isForwardState.value = true
                 }
                 .wrapContentSize(),
-            text = "set target 1",
+            text = "to forward",
         )
     }
 }
@@ -547,7 +545,7 @@ internal fun MainScreen() {
                 label = "green",
                 color = Color.Green,
             )
-            V4Screen(color = Color.Blue)
+//            V4Screen(color = Color.Blue)
             BasicText(
                 modifier = Modifier
                     .fillMaxWidth()
