@@ -287,16 +287,15 @@ private fun animatedFloat(
 }
 
 @Composable
-internal fun AnimatedState.TestScreen(label: String, color: Color) {
+internal fun AnimatedState.TestScreen(color: Color) {
     val isForwardState = remember { mutableStateOf(false) }
     val currentValue = animatedFloat(
         duration = 2.seconds,
-        easing = LinearEasing,
-        label = label,
+//        easing = LinearEasing,
+        easing = FastOutSlowInEasing,
         isForward = isForwardState.value,
     )
     val text = """
-        label: $label
         current: $currentValue
         isForward: ${isForwardState.value}
     """.trimIndent()
@@ -538,11 +537,9 @@ internal fun MainScreen() {
                 .align(Alignment.Center),
         ) {
             state.TestScreen(
-                label = "red",
                 color = Color.Red,
             )
             state.TestScreen(
-                label = "green",
                 color = Color.Green,
             )
 //            V4Screen(color = Color.Blue)

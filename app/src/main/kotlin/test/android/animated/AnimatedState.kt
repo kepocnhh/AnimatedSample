@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -84,13 +85,13 @@ class AnimatedState {
         duration: Duration,
         easing: Easing,
         isForward: Boolean,
-        label: String,
     ): Float {
         val values = remember { mutableFloatStateOf(0f) }
         val timeLeftState = remember { AtomicLong(0L) }
         val durations = remember { AtomicReference(duration) }
         val easingState = remember { AtomicReference(easing) }
-        LaunchedEffect(duration, easing, isForward, label) {
+        val ids = remember { AtomicReference(UUID.randomUUID().toString()) }
+        LaunchedEffect(duration, easing, isForward) {
             val timeLeft: Long
             val currentValue: Float
             if (duration != durations.get() || easing != easingState.get()) {
@@ -107,7 +108,7 @@ class AnimatedState {
                 val timeNanos = duration.inWholeNanoseconds
                 val timeNow = withFrameNanos { it }
                 val timeStart = timeNow - timeLeft
-                _animations.value += label
+                _animations.value += ids.get()
                 while (true) {
                     val timePassed = withFrameNanos { it - timeStart }
                     if (timePassed < timeNanos) {
@@ -121,11 +122,11 @@ class AnimatedState {
                     } else {
                         timeLeftState.set(0)
                         values.floatValue = targetValue
-                        _animations.value -= label
                         break
                     }
                 }
             }
+            _animations.value -= ids.get()
         }
         return values.floatValue
     }
